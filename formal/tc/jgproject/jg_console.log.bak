@@ -1,0 +1,73 @@
+2025-12-16 00:47:08.032130 (1833207) main____ INFO    ----------------------------------------
+2025-12-16 00:47:08.032170 (1833207) main____ INFO    Jasper version info
+2025-12-16 00:47:08.032176 (1833207) main____ INFO      tool      : Jasper 2024.03
+2025-12-16 00:47:08.032180 (1833207) main____ INFO      version   : 2024.03 FCS 64 bits
+2025-12-16 00:47:08.032183 (1833207) main____ INFO      build date: 2024.03.27 15:42:27 UTC
+2025-12-16 00:47:08.032186 (1833207) main____ INFO    ----------------------------------------
+2025-12-16 00:47:08.032188 (1833207) main____ INFO    Runtime info:
+2025-12-16 00:47:08.032190 (1833207) main____ INFO      platform  : Linux 6.17.9-arch1-1 x86_64
+2025-12-16 00:47:08.032196 (1833207) main____ INFO      hostname  : mashina
+2025-12-16 00:47:08.032200 (1833207) main____ INFO      pid       : 1833207
+2025-12-16 00:47:08.032203 (1833207) main____ INFO      arguments : '-style' 'windows' '-allow_unsupported_OS' '-allow_unsupported_OS' 'led_axi_formal_tc.tcl'
+2025-12-16 00:47:08.032206 (1833207) main____ INFO      locale    : ANSI_X3.4-1968
+2025-12-16 00:47:08.032208 (1833207) main____ INFO    ----------------------------------------
+2025-12-16 00:47:08.032210 (1833207) main____ INFO    System resource limits info:
+2025-12-16 00:47:08.032213 (1833207) main____ INFO      virtual memory: unlimited
+2025-12-16 00:47:08.032216 (1833207) main____ INFO      cpu time      : unlimited
+2025-12-16 00:47:08.032221 (1833207) main____ INFO      processes     : 126486
+2025-12-16 00:47:08.032227 (1833207) main____ INFO      stack size    : 8388608 B
+2025-12-16 00:47:08.032230 (1833207) main____ INFO      core file size: unlimited
+2025-12-16 00:47:08.032233 (1833207) main____ INFO      open files    : 1024
+2025-12-16 00:47:08.032236 (1833207) main____ INFO      file size     : unlimited
+2025-12-16 00:47:08.032238 (1833207) main____ INFO    ----------------------------------------
+2025-12-16 00:47:08.032240 (1833207) main____ INFO    Memory statistics:
+2025-12-16 00:47:08.032243 (1833207) main____ INFO      total physical memory  : 32792516 kB
+2025-12-16 00:47:08.032245 (1833207) main____ INFO      free physical memory   : 1226636 kB
+2025-12-16 00:47:08.032248 (1833207) main____ INFO      committed address space: 26902332 kB
+2025-12-16 00:47:08.032250 (1833207) main____ INFO    ----------------------------------------
+2025-12-16 00:47:08.032832 (1833207) main____ INFO    Important environment variables:
+2025-12-16 00:47:08.032841 (1833207) main____ INFO      CDS_AUTO_32BIT     : 'NONE'
+2025-12-16 00:47:08.032844 (1833207) main____ INFO      CDS_AUTO_64BIT     : 'ALL'
+2025-12-16 00:47:08.032848 (1833207) main____ INFO      CDS_INST_DIR       : '/ssd1/eda/cadence/xcelium_24_03_001'
+2025-12-16 00:47:08.032851 (1833207) main____ INFO      CDS_LICENSE_DIR    : '/ssd1/eda/cadence/license'
+2025-12-16 00:47:08.032854 (1833207) main____ INFO      CDS_LIC_FILE       : '/ssd1/eda/cadence/license/license.dat'
+2025-12-16 00:47:08.032857 (1833207) main____ INFO      CDS_LIC_ONLY       : '1'
+2025-12-16 00:47:08.032859 (1833207) main____ INFO      DISPLAY            : ':0'
+2025-12-16 00:47:08.032862 (1833207) main____ INFO      EDITOR             : 'nvim'
+2025-12-16 00:47:08.032865 (1833207) main____ INFO      JASPER_INSTALL_DIR : '/ssd1/eda/cadence/jasper_2024.03'
+2025-12-16 00:47:08.032868 (1833207) main____ INFO      JASPER_KERNEL_CHECK: '1'
+2025-12-16 00:47:08.032871 (1833207) main____ INFO      JASPER_OS_CHECK    : '0'
+2025-12-16 00:47:08.032873 (1833207) main____ INFO      LANG               : 'C'
+2025-12-16 00:47:08.032876 (1833207) main____ INFO      LC_MEASUREMENT     : 'hr_HR.UTF-8'
+2025-12-16 00:47:08.032879 (1833207) main____ INFO      LC_MONETARY        : 'hr_HR.UTF-8'
+2025-12-16 00:47:08.032882 (1833207) main____ INFO      LC_NUMERIC         : 'hr_HR.UTF-8'
+2025-12-16 00:47:08.032884 (1833207) main____ INFO      LC_PAPER           : 'hr_HR.UTF-8'
+2025-12-16 00:47:08.032887 (1833207) main____ INFO      LC_TIME            : 'hr_HR.UTF-8'
+2025-12-16 00:47:08.032890 (1833207) main____ INFO      LM_LICENSE_FILE    : '/ssd1/eda/cadence/license/license.dat'
+2025-12-16 00:47:08.032896 (1833207) main____ INFO    ----------------------------------------
+2025-12-16 00:47:08.033374 (1833207) lic_core INFO    Initializing license system ...
+2025-12-16 00:47:08.036050 (1833207) lic_core INFO    ... license system initialized.
+2025-12-16 00:47:08.039363 (1833207) lic__man INFO    Claim 'main' for <ui>.
+2025-12-16 00:47:08.039381 (1833207) lic_core INFO    (1) checking out 'jasper_interactive' ...
+2025-12-16 00:47:08.159540 (1833207) lic_core INFO    ... (1) checkout succeeded
+2025-12-16 00:47:08.159576 (1833207) lic__man INFO    Claim 'fpv' for <ui>.
+2025-12-16 00:47:08.159587 (1833207) lic_core INFO    (2) checking out 'jasper_fpv' ...
+2025-12-16 00:47:08.278159 (1833207) lic_core INFO    ... (2) checkout succeeded
+2025-12-16 00:47:08.278476 (1833207) main____ INFO    Tool inactivity delay is 480000 ms.
+2025-12-16 00:47:08.805662 (1833207) lic__man INFO    Claim 'fpv' for <ui>.
+2025-12-16 00:47:08.950800 (1833207) lic__man INFO    Unclaim 'fpv' for <ui>.
+2025-12-16 00:47:08.950826 (1833207) lic__man INFO    Claim 'fpv' for <ui>.
+2025-12-16 00:47:08.954195 (1833207) session_ INFO    Starting analysis session with session id 'session_0' (launcher: <local>) ...
+2025-12-16 00:47:08.956618 (1833207) session_ INFO    Analysis session with session id 'session_0' started (pid: 1833228)
+2025-12-16 00:47:09.553504 (1833207) session_ INFO    Analysis session 'session_0' connected to the console (host: 127.0.0.1:56418)
+2025-12-16 00:47:09.743567 (1833207) main____ INFO    Releasing console memory by request of analysis session 'session_0'.
+2025-12-16 00:47:09.744150 (1833207) lic__man INFO    Unclaim everything for 'session_0'.
+2025-12-16 00:47:10.108731 (1833207) lic__man INFO    Unclaim everything for 'session_0'.
+2025-12-16 00:47:12.943789 (1833207) main____ INFO    Releasing console memory by request of analysis session 'session_0'.
+2025-12-16 00:47:12.943919 (1833207) lic__man INFO    Unclaim everything for 'session_0'.
+2025-12-16 00:47:13.280530 (1833207) lic__man INFO    Unclaim everything for 'session_0'.
+2025-12-16 00:47:15.490445 (1833207) lic__man INFO    Claim 'fpv' for 'session_0'.
+2025-12-16 00:47:15.490471 (1833207) lic__man INFO    Claim 'fpv' for 'session_0/prove-0'.
+2025-12-16 00:47:16.286275 (1833207) lic__man INFO    Unclaim everything for 'session_0/prove-0'.
+2025-12-16 00:47:17.156441 (1833207) lic__man INFO    Claim 'fpv' for 'session_0'.
+2025-12-16 00:56:04.945038 (1833207) lic__man INFO    Entering idle state.

@@ -9,7 +9,7 @@
 // 4k address space by default. Writing to the unused address will result in SLVERR response.
 // LED_NBR_p parameter greater than the bus data width will result in synthesis issues.
 
-module led_axi #(
+module axi_led #(
   parameter AXI_ADDR_BW_p = 12,    // 4k boundary by default
   parameter LED_NBR_p = 8          // Number of LEDs. Maximum length = bus data width 
 ) (
@@ -21,7 +21,7 @@ module led_axi #(
   input wire logic [3:0] i_axi_wstrb,
   input wire logic i_axi_wvalid,
   input wire logic i_axi_bready,
-  input wire logic [$clog2(AXI_ADDR_BW_p-1):0] i_axi_araddr,
+  input wire logic [$clog2(AXI_ADDR_BW_p)-1:0] i_axi_araddr,
   input wire logic i_axi_arvalid,
   input wire logic i_axi_rready,
   output wire logic o_axi_awready,
@@ -48,25 +48,93 @@ module led_axi #(
   logic s_axi_bvalid;
   logic s_axi_awready;
   logic s_axi_wready;
-  logic s_axi_arready;
+  logic s_awaddr_done;
+  logic [$clog2(AXI_ADDR_BW_p-1):0] s_axi_awaddr;
   logic [LED_NBR_p-1:0] s_led;
   
   assign o_axi_awready = s_axi_awready;
   assign o_axi_wready = s_axi_wready;
   assign o_axi_bresp = s_axi_bresp;
   assign o_axi_bvalid = s_axi_bvalid;
-  assign o_axi_arready = s_axi_arready;
   assign o_axi_rdata = s_axi_rdata;
   assign o_axi_rresp = s_axi_rresp;
   assign o_axi_rvalid = s_axi_rvalid;
   assign o_led = s_led;
 
+  
+  // Read address and read response
+  logic s_rvalid_buf;
+  logic [31:0] s_rdata_buf;
+  logic [1:0]  s_rresp_buf;
+  logic s_rvalid_buf_en;
+  logic [31:0] c_rdata;
+  logic [1:0]  c_rresp;
+
+  assign o_axi_arready = !s_rvalid_buf;
+
+  always_ff @(posedge clk) begin
+    if (!rst_n) begin
+      s_rvalid_buf <= 1'b0;
+    end else begin
+      // We should buffer data if receiver (slave) is stalling 
+      if ((i_axi_arvalid && o_axi_arready) && (s_axi_rvalid && !i_axi_rready)) begin
+        s_rvalid_buf <= 1'b1;
+        s_rdata_buf <= c_rdata;
+        s_rresp_buf <= c_rresp;
+      end else if (o_axi_rvalid && i_axi_rready) begin
+        s_rvalid_buf <= 1'b0;
+      end
+    end
+  end
+
+  // Address decoder
+  always_comb begin
+    case (i_axi_araddr[$clog2(AXI_ADDR_BW_p)-1:2]) 
+      'd0: begin
+        c_rdata <= s_led;
+        c_rresp <= RESP_OKAY;
+      end
+
+      default: begin
+        c_rdata <= 32'hdeaddead;
+        c_rresp <= RESP_SLVERR;
+      end
+    endcase
+  end
+
+  always_ff @(posedge clk) begin
+    if (!rst_n) begin
+      s_axi_rvalid <= 1'b0;
+    end else begin
+      // Load from buffer first - buffer has highest priority
+      if (s_rvalid_buf && (!s_axi_rvalid || i_axi_rready)) begin
+        s_axi_rdata <= s_rdata_buf;
+        s_axi_rresp <= s_rresp_buf;
+        s_axi_rvalid <= 1'b1;
+      
+      // Load from input when no buffer data is pending
+      end else if (i_axi_arvalid && o_axi_arready && (!s_axi_rvalid || i_axi_rready)) begin
+        s_axi_rdata <= c_rdata;
+        s_axi_rresp <= c_rresp;
+        s_axi_rvalid <= 1'b1;
+
+      // Clear when handshake completes and no new data
+      end else if (o_axi_rvalid && i_axi_rready && !s_rvalid_buf && !(i_axi_arvalid && o_axi_arready)) begin
+        s_axi_rvalid <= 1'b0;
+      end
+    end
+  end
+
   // Write address handshake
   always_ff @(posedge clk) begin
     if (!rst_n) begin
       s_axi_awready <= 1'b0;
+      s_awaddr_done <= 1'b0;
+      s_axi_awaddr <= '0;
     end else if (i_axi_awvalid && !s_axi_awready) begin
       s_axi_awready <= 1'b1;
+    end else if (i_axi_awvalid && s_axi_awready) begin
+      s_awaddr_done <= 1'b1;
     end else begin
       s_axi_awready <= 1'b0;
     end
@@ -111,32 +179,32 @@ module led_axi #(
     end
   end
 
-  // Read address handshake
-  always_ff @(posedge clk) begin
-    if (!rst_n) begin
-      s_axi_arready <= 1'b0;
-      s_axi_rresp = RESP_OKAY;
-      s_axi_rvalid <= 1'b0;
-    end else begin
-      if (i_axi_arvalid && !s_axi_arready) begin
-        s_axi_arready <= 1'b1;
-        s_axi_rresp <= RESP_OKAY;
-        case (i_axi_araddr[$clog2(AXI_ADDR_BW_p)-1:2])
-          'd0: begin
-            s_axi_rdata <= s_led;
-          end
-          default: begin
-            s_axi_rdata <= 32'hdeaddead;
-            s_axi_rresp <= RESP_SLVERR;
-          end
-        endcase
-        s_axi_rvalid <= 1'b1;
-      end else if (i_axi_rready && s_axi_rvalid) begin
-        s_axi_rvalid <= 1'b0;
-      end else begin
-        s_axi_arready <= 1'b0;
-      end
-    end
-  end
+  //// Read address handshake
+  //always_ff @(posedge clk) begin
+  //  if (!rst_n) begin
+  //    s_axi_arready <= 1'b0;
+  //    s_axi_rresp = RESP_OKAY;
+  //    s_axi_rvalid <= 1'b0;
+  //  end else begin
+  //    if (i_axi_arvalid && !s_axi_arready) begin
+  //      s_axi_arready <= 1'b1;
+  //      s_axi_rresp <= RESP_OKAY;
+  //      case (i_axi_araddr[$clog2(AXI_ADDR_BW_p)-1:2])
+  //        'd0: begin
+  //          s_axi_rdata <= s_led;
+  //        end
+  //        default: begin
+  //          s_axi_rdata <= 32'hdeaddead;
+  //          s_axi_rresp <= RESP_SLVERR;
+  //        end
+  //      endcase
+  //      s_axi_rvalid <= 1'b1;
+  //    end else if (i_axi_rready && s_axi_rvalid) begin
+  //      s_axi_rvalid <= 1'b0;
+  //    end else begin
+  //      s_axi_arready <= 1'b0;
+  //    end
+  //  end
+  //end
 
-endmodule : led_axi
+endmodule : axi_led
