@@ -18,7 +18,6 @@ module axi_led #(
   input wire logic [$clog2(AXI_ADDR_BW_p)-1:0] i_axi_awaddr,
   input wire logic  i_axi_awvalid,
   input wire logic [31:0] i_axi_wdata,
-  input wire logic [3:0] i_axi_wstrb,
   input wire logic i_axi_wvalid,
   input wire logic i_axi_bready,
   input wire logic [$clog2(AXI_ADDR_BW_p)-1:0] i_axi_araddr,
@@ -40,7 +39,7 @@ module axi_led #(
   localparam logic [1:0] RESP_SLVERR = 2'b10;
   localparam logic [1:0] RESP_DECERR = 2'b11;
   
-  logic [LED_NBR_p-1:0] s_led;
+  logic [31:0] s_led;
   
   // --------------------------------------------------------------
   // Write address, write data and write wresponse
@@ -107,7 +106,6 @@ module axi_led #(
       // get a write data without a write address
       if (i_axi_wvalid && o_axi_wready && (write_response_stalled || !valid_write_address)) begin
         s_axi_wdata_buf <= i_axi_wdata;
-        s_axi_wstrb_buf <= i_axi_wstrb;
         s_axi_wdata_buf_used <= 1'b1;
       end else if (s_axi_wdata_buf_used && valid_write_address && (!o_axi_bvalid || i_axi_bready)) begin
         s_axi_wdata_buf_used <= 1'b0;
@@ -116,23 +114,8 @@ module axi_led #(
   end
 
   // Muxes to select write address and write data either from the buffer or from the AXI bus
-  always_comb begin
-    if (s_axi_awaddr_buf_used) begin
-      c_axi_awaddr = s_axi_awaddr_buf;
-    end else begin
-      c_axi_awaddr = i_axi_awaddr;
-    end
-  end
-
-  always_comb begin
-    if (s_axi_wdata_buf_used) begin
-      c_axi_wstrb = s_axi_wstrb_buf;
-      c_axi_wdata = s_axi_wdata_buf;
-    end else begin
-      c_axi_wstrb = i_axi_wstrb; 
-      c_axi_wdata = i_axi_wdata;
-    end
-  end
+  assign c_axi_awaddr = s_axi_awaddr_buf_used ? s_axi_awaddr_buf : i_axi_awaddr;
+  assign c_axi_wdata  = s_axi_wdata_buf_used  ? s_axi_wdata_buf : i_axi_wdata;
 
   // Store write data to the correct register and generate a response
   always_ff @(posedge clk) begin
@@ -143,10 +126,7 @@ module axi_led #(
       if (valid_write_address && valid_write_data && (!o_axi_bvalid || i_axi_bready)) begin
         case (c_axi_awaddr[$clog2(AXI_ADDR_BW_p)-1:2])
           '0 : begin
-            if (c_axi_wstrb[0]) s_led[7:0]   <= c_axi_wdata[7:0];
-            if (c_axi_wstrb[1]) s_led[15:8]  <= c_axi_wdata[15:8];
-            if (c_axi_wstrb[2]) s_led[23:16] <= c_axi_wdata[23:16];
-            if (c_axi_wstrb[3]) s_led[31:24] <= c_axi_wdata[31:24];
+            s_led <= c_axi_wdata[LED_NBR_p-1:0];
             s_axi_bresp <= RESP_OKAY;
           end
 
@@ -216,12 +196,13 @@ module axi_led #(
         case (c_araddr[$clog2(AXI_ADDR_BW_p)-1:2])
           'd0: begin
             // Forward write data if write is happening to same address
-            s_axi_rdata = s_led;
-            s_axi_rresp = RESP_OKAY;
+            s_axi_rdata <= '0;
+            s_axi_rdata[LED_NBR_p-1:0] <= s_led;
+            s_axi_rresp <= RESP_OKAY;
           end
           default: begin
-            s_axi_rdata = 32'hdeaddead;
-            s_axi_rresp = RESP_SLVERR;
+            s_axi_rdata <= 32'hdeaddead;
+            s_axi_rresp <= RESP_SLVERR;
           end
         endcase
         s_axi_rvalid <= 1'b1;

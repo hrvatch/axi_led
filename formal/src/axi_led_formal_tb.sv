@@ -7,7 +7,6 @@ module axi_led_formal_tb #(
   input wire logic [$clog2(AXI_ADDR_BW_p)-1:0] i_axi_awaddr,
   input wire logic  i_axi_awvalid,
   input wire logic [31:0] i_axi_wdata,
-  input wire logic [3:0] i_axi_wstrb,
   input wire logic i_axi_wvalid,
   input wire logic i_axi_bready,
   input wire logic [$clog2(AXI_ADDR_BW_p)-1:0] i_axi_araddr,
@@ -48,7 +47,6 @@ module axi_led_formal_tb #(
   assume_araddr_valid_ready_handshake : assume property(valid_ready_handshake(i_axi_arvalid, o_axi_arready, i_axi_araddr));
   assume_awaddr_valid_ready_handshake : assume property(valid_ready_handshake(i_axi_awvalid, o_axi_awready, i_axi_awaddr));
   assume_wdata_valid_ready_handshake  : assume property(valid_ready_handshake(i_axi_wvalid, o_axi_wready, i_axi_wdata));
-  assume_wstrb_valid_ready_handshake  : assume property(valid_ready_handshake(i_axi_wvalid, o_axi_wready, i_axi_wstrb));
 
   // 4-byte aligned
   assume_araddr_4_byte_aligned : assume property(i_axi_araddr[1:0] == 2'b0);
@@ -158,7 +156,6 @@ module axi_led_formal_tb #(
 
   // Auxilliary logic for the data and read response checks
   logic [31:0] write_data[2];
-  logic [3:0] write_strobe[2];
   logic [$clog2(AXI_ADDR_BW_p)-1:0] write_addr[2];
   logic write_data_read_pointer;
   logic write_data_write_pointer;
@@ -168,7 +165,6 @@ module axi_led_formal_tb #(
     if (!rst_n) begin
       write_data <= '{default:1'b0};
       write_addr <= '{default:1'b0};
-      write_strobe <= '{default:1'b0};
       write_data_write_pointer <= 1'b0;
       write_data_read_pointer <= 1'b0;
       write_address_write_pointer <= 1'b0;
@@ -176,7 +172,6 @@ module axi_led_formal_tb #(
     end else begin
       if (i_axi_wvalid && o_axi_wready) begin
         write_data[write_data_write_pointer] <= i_axi_wdata;
-        write_strobe[write_data_write_pointer] <= i_axi_wstrb;
         write_data_write_pointer <= ~write_data_write_pointer;
       end 
   
@@ -192,21 +187,9 @@ module axi_led_formal_tb #(
     end
   end
 
-  assert_correct_write_data_valid_addr_strb_0 : assert property (
-    o_axi_bvalid && i_axi_bready && write_strobe[write_data_read_pointer][0] && write_addr[write_address_read_pointer] == 0 
-    |-> o_led[7:0] == write_data[write_data_read_pointer][7:0]
-  );
-  assert_correct_write_data_valid_addr_strb_1 : assert property (
-    o_axi_bvalid && i_axi_bready && write_strobe[write_data_read_pointer][1] && write_addr[write_address_read_pointer] == 0 
-    |-> o_led[15:8] == write_data[write_data_read_pointer][15:8]
-  );
-  assert_correct_write_data_valid_addr_strb_2 : assert property (
-    o_axi_bvalid && i_axi_bready && write_strobe[write_data_read_pointer][2] && write_addr[write_address_read_pointer] == 0 
-    |-> o_led[23:16] == write_data[write_data_read_pointer][23:16]
-  );
-  assert_correct_write_data_valid_addr_strb_3 : assert property (
-    o_axi_bvalid && i_axi_bready && write_strobe[write_data_read_pointer][3] && write_addr[write_address_read_pointer] == 0 
-    |-> o_led[31:24] == write_data[write_data_read_pointer][31:24]
+  assert_correct_write_data_valid_addr : assert property (
+    o_axi_bvalid && i_axi_bready && write_addr[write_address_read_pointer] == 0 
+    |-> o_led == write_data[write_data_read_pointer]
   );
   assert_write_response_okay : assert property (
     o_axi_bvalid && i_axi_bready && write_addr[write_address_read_pointer] == 0 |-> o_axi_bresp == RESP_OKAY
@@ -256,7 +239,6 @@ module axi_led_formal_tb #(
     .i_axi_awaddr ( i_axi_awaddr ),
     .i_axi_awvalid ( i_axi_awvalid ),
     .i_axi_wdata ( i_axi_wdata ),
-    .i_axi_wstrb ( i_axi_wstrb ),
     .i_axi_wvalid ( i_axi_wvalid ),
     .i_axi_bready ( i_axi_bready ),
     .i_axi_araddr ( i_axi_araddr ),
