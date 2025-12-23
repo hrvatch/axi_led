@@ -40,171 +40,200 @@ module axi_led #(
   localparam logic [1:0] RESP_SLVERR = 2'b10;
   localparam logic [1:0] RESP_DECERR = 2'b11;
   
+  logic [LED_NBR_p-1:0] s_led;
+  
+  // --------------------------------------------------------------
+  // Write address, write data and write wresponse
+  // --------------------------------------------------------------
+  logic [1:0]  c_axi_wresp;
+  logic [3:0]  c_axi_wstrb;
+  logic [31:0] c_axi_wdata;
+  logic s_axi_wdata_buf_used;
+  logic [31:0] s_axi_wdata_buf;
+  logic [3:0]  s_axi_wstrb_buf;
+  logic [1:0]  s_axi_bresp;
+  logic [$clog2(AXI_ADDR_BW_p)-1:0] s_axi_awaddr_buf;
+  logic [$clog2(AXI_ADDR_BW_p)-1:0] c_axi_awaddr;
+  logic s_axi_awaddr_buf_used;
+  logic s_axi_awvalid;
+  logic s_axi_wvalid;
   // Internal signals
-  logic [31:0] s_axi_rdata;
-  logic [1:0] s_axi_rresp;
-  logic [1:0] s_axi_bresp;
-  logic s_axi_rvalid;
   logic s_axi_bvalid;
   logic s_axi_awready;
   logic s_axi_wready;
   logic s_awaddr_done;
   logic [$clog2(AXI_ADDR_BW_p-1):0] s_axi_awaddr;
-  logic [LED_NBR_p-1:0] s_led;
-  
-  assign o_axi_awready = s_axi_awready;
-  assign o_axi_wready = s_axi_wready;
-  assign o_axi_bresp = s_axi_bresp;
-  assign o_axi_bvalid = s_axi_bvalid;
-  assign o_axi_rdata = s_axi_rdata;
-  assign o_axi_rresp = s_axi_rresp;
-  assign o_axi_rvalid = s_axi_rvalid;
-  assign o_led = s_led;
+ 
+  // We want to stall the address write if either we received write request without write data
+  // or if the write address buffer is full and master is stalling write response channel
+  assign o_axi_awready = !s_axi_awaddr_buf_used & s_axi_awvalid;
 
-  
-  // Read address and read response
-  logic s_rvalid_buf;
-  logic [31:0] s_rdata_buf;
-  logic [1:0]  s_rresp_buf;
-  logic s_rvalid_buf_en;
-  logic [31:0] c_rdata;
-  logic [1:0]  c_rresp;
+  // We want to stall the data write if either we received write data without a write request
+  // or if the write data buffer is full and master is stalling write response channel
+  assign o_axi_wready  = !s_axi_wdata_buf_used & s_axi_wvalid;
 
-  assign o_axi_arready = !s_rvalid_buf;
+  logic write_response_stalled;
+  logic valid_write_address;
+  logic valid_write_data;
+
+  assign write_response_stalled = o_axi_bvalid & ~i_axi_bready;
+  assign valid_write_address = s_axi_awaddr_buf_used | (i_axi_awvalid & o_axi_awready);
+  assign valid_write_data = s_axi_wdata_buf_used | (i_axi_wvalid & o_axi_wready);
 
   always_ff @(posedge clk) begin
     if (!rst_n) begin
-      s_rvalid_buf <= 1'b0;
+      s_axi_awvalid <= 1'b0;
+      s_axi_awaddr_buf_used <= 1'b0;
     end else begin
-      // We should buffer data if receiver (slave) is stalling 
-      if ((i_axi_arvalid && o_axi_arready) && (s_axi_rvalid && !i_axi_rready)) begin
-        s_rvalid_buf <= 1'b1;
-        s_rdata_buf <= c_rdata;
-        s_rresp_buf <= c_rresp;
-      end else if (o_axi_rvalid && i_axi_rready) begin
-        s_rvalid_buf <= 1'b0;
+      s_axi_awvalid <= 1'b1;
+      // When master is stalling on the response channel or if we didn't receive
+      // write data, we need to buffer the address
+      if (i_axi_awvalid && o_axi_awready && (write_response_stalled || !valid_write_data)) begin
+        s_axi_awaddr_buf <= i_axi_awaddr;
+        s_axi_awaddr_buf_used <= 1'b1;
+      end else if (s_axi_awaddr_buf_used && valid_write_data && (!o_axi_bvalid || i_axi_bready)) begin
+        s_axi_awaddr_buf_used <= 1'b0;
       end
     end
   end
 
-  // Address decoder
+  always_ff @(posedge clk) begin
+    if (!rst_n) begin
+      s_axi_wdata_buf_used <= 1'b0;
+      s_axi_wvalid <= 1'b0;
+    end else begin
+      s_axi_wvalid <= 1'b1;
+      // We want to fill the buffer if either we're getting a response stall, or we 
+      // get a write data without a write address
+      if (i_axi_wvalid && o_axi_wready && (write_response_stalled || !valid_write_address)) begin
+        s_axi_wdata_buf <= i_axi_wdata;
+        s_axi_wstrb_buf <= i_axi_wstrb;
+        s_axi_wdata_buf_used <= 1'b1;
+      end else if (s_axi_wdata_buf_used && valid_write_address && (!o_axi_bvalid || i_axi_bready)) begin
+        s_axi_wdata_buf_used <= 1'b0;
+      end
+    end
+  end
+
+  // Muxes to select write address and write data either from the buffer or from the AXI bus
   always_comb begin
-    case (i_axi_araddr[$clog2(AXI_ADDR_BW_p)-1:2]) 
-      'd0: begin
-        c_rdata <= s_led;
-        c_rresp <= RESP_OKAY;
-      end
-
-      default: begin
-        c_rdata <= 32'hdeaddead;
-        c_rresp <= RESP_SLVERR;
-      end
-    endcase
-  end
-
-  always_ff @(posedge clk) begin
-    if (!rst_n) begin
-      s_axi_rvalid <= 1'b0;
+    if (s_axi_awaddr_buf_used) begin
+      c_axi_awaddr = s_axi_awaddr_buf;
     end else begin
-      // Load from buffer first - buffer has highest priority
-      if (s_rvalid_buf && (!s_axi_rvalid || i_axi_rready)) begin
-        s_axi_rdata <= s_rdata_buf;
-        s_axi_rresp <= s_rresp_buf;
-        s_axi_rvalid <= 1'b1;
-      
-      // Load from input when no buffer data is pending
-      end else if (i_axi_arvalid && o_axi_arready && (!s_axi_rvalid || i_axi_rready)) begin
-        s_axi_rdata <= c_rdata;
-        s_axi_rresp <= c_rresp;
-        s_axi_rvalid <= 1'b1;
-
-      // Clear when handshake completes and no new data
-      end else if (o_axi_rvalid && i_axi_rready && !s_rvalid_buf && !(i_axi_arvalid && o_axi_arready)) begin
-        s_axi_rvalid <= 1'b0;
-      end
+      c_axi_awaddr = i_axi_awaddr;
     end
   end
 
-  // Write address handshake
-  always_ff @(posedge clk) begin
-    if (!rst_n) begin
-      s_axi_awready <= 1'b0;
-      s_awaddr_done <= 1'b0;
-      s_axi_awaddr <= '0;
-    end else if (i_axi_awvalid && !s_axi_awready) begin
-      s_axi_awready <= 1'b1;
-    end else if (i_axi_awvalid && s_axi_awready) begin
-      s_awaddr_done <= 1'b1;
+  always_comb begin
+    if (s_axi_wdata_buf_used) begin
+      c_axi_wstrb = s_axi_wstrb_buf;
+      c_axi_wdata = s_axi_wdata_buf;
     end else begin
-      s_axi_awready <= 1'b0;
+      c_axi_wstrb = i_axi_wstrb; 
+      c_axi_wdata = i_axi_wdata;
     end
   end
 
-  // Write data handshake
+  // Store write data to the correct register and generate a response
   always_ff @(posedge clk) begin
     if (!rst_n) begin
-      s_axi_wready <= 1'b0;
-      s_axi_bresp <= RESP_OKAY;
       s_axi_bvalid <= 1'b0;
-      s_led <= 8'b0;
     end else begin
-      if (i_axi_wvalid && !s_axi_wready) begin
-        s_axi_wready <= 1'b1;
-        s_axi_bresp <= RESP_OKAY;
-        case (i_axi_awaddr[$clog2(AXI_ADDR_BW_p)-1:2])
-          'd0: begin
-            if (i_axi_wstrb[0]) begin
-              s_led[7:0] <= i_axi_wdata[7:0];
-            end
-            if (i_axi_wstrb[1] && LED_NBR_p >= 8) begin
-              s_led[15:8] <= i_axi_wdata[15:8];
-            end
-            if (i_axi_wstrb[2] && LED_NBR_p >= 16) begin
-              s_led[23:16] <= i_axi_wdata[23:16];
-            end
-            if (i_axi_wstrb[3] && LED_NBR_p >= 24) begin
-              s_led[31:24] <= i_axi_wdata[31:24];
-            end
+      // If there is write address and write data in the buffer
+      if (valid_write_address && valid_write_data && (!o_axi_bvalid || i_axi_bready)) begin
+        case (c_axi_awaddr[$clog2(AXI_ADDR_BW_p)-1:2])
+          '0 : begin
+            if (c_axi_wstrb[0]) s_led[7:0]   <= c_axi_wdata[7:0];
+            if (c_axi_wstrb[1]) s_led[15:8]  <= c_axi_wdata[15:8];
+            if (c_axi_wstrb[2]) s_led[23:16] <= c_axi_wdata[23:16];
+            if (c_axi_wstrb[3]) s_led[31:24] <= c_axi_wdata[31:24];
+            s_axi_bresp <= RESP_OKAY;
           end
+
           default: begin
             s_axi_bresp <= RESP_SLVERR;
           end
         endcase
         s_axi_bvalid <= 1'b1;
-      end else if (i_axi_bready && s_axi_bvalid) begin
+      end else if (o_axi_bvalid && i_axi_bready && !(valid_write_address && valid_write_data)) begin
         s_axi_bvalid <= 1'b0;
-      end else begin
-        s_axi_wready <= 1'b0;
+      end
+    end
+  end
+  
+  assign o_axi_bresp = s_axi_bresp;
+  assign o_led = s_led;
+
+  // Assign intermediate signals to outputs 
+  assign o_axi_bvalid = s_axi_bvalid;
+  
+  // --------------------------------------------------------------
+  // Read address and read response
+  // --------------------------------------------------------------
+  logic s_axi_rvalid;
+  logic [31:0] s_axi_rdata;
+  logic [1:0] s_axi_rresp;
+  logic s_axi_arready;
+
+  // Read address buffer
+  logic [$clog2(AXI_ADDR_BW_p)-1:0] s_araddr_buf;
+  logic s_araddr_buf_used;
+  logic [$clog2(AXI_ADDR_BW_p)-1:0] c_araddr;
+
+  // Address buffer management
+  always_ff @(posedge clk) begin
+    if (!rst_n) begin
+      s_araddr_buf_used <= 1'b0;
+      s_axi_arready <= 1'b0;
+    end else begin
+      s_axi_arready <= 1'b1;
+
+      // Fill buffer when response is stalled
+      if (i_axi_arvalid && o_axi_arready && o_axi_rvalid && !i_axi_rready) begin
+        s_araddr_buf <= i_axi_araddr;
+        s_araddr_buf_used <= 1'b1;
+      end 
+      // Clear buffer when address is consumed
+      else if (s_araddr_buf_used && (!o_axi_rvalid || i_axi_rready)) begin
+        s_araddr_buf_used <= 1'b0;
       end
     end
   end
 
-  //// Read address handshake
-  //always_ff @(posedge clk) begin
-  //  if (!rst_n) begin
-  //    s_axi_arready <= 1'b0;
-  //    s_axi_rresp = RESP_OKAY;
-  //    s_axi_rvalid <= 1'b0;
-  //  end else begin
-  //    if (i_axi_arvalid && !s_axi_arready) begin
-  //      s_axi_arready <= 1'b1;
-  //      s_axi_rresp <= RESP_OKAY;
-  //      case (i_axi_araddr[$clog2(AXI_ADDR_BW_p)-1:2])
-  //        'd0: begin
-  //          s_axi_rdata <= s_led;
-  //        end
-  //        default: begin
-  //          s_axi_rdata <= 32'hdeaddead;
-  //          s_axi_rresp <= RESP_SLVERR;
-  //        end
-  //      endcase
-  //      s_axi_rvalid <= 1'b1;
-  //    end else if (i_axi_rready && s_axi_rvalid) begin
-  //      s_axi_rvalid <= 1'b0;
-  //    end else begin
-  //      s_axi_arready <= 1'b0;
-  //    end
-  //  end
-  //end
+  // Mux to select address 
+  assign c_araddr = s_araddr_buf_used ? s_araddr_buf : i_axi_araddr;
+
+  // Ready signal blocks when buffer full
+  assign o_axi_arready = !s_araddr_buf_used & s_axi_arready;
+
+  // Response generation
+  always_ff @(posedge clk) begin
+    if (!rst_n) begin
+      s_axi_rvalid <= 1'b0;
+    end else begin
+      // Generate response when address is available (buffer or direct)
+      if ((s_araddr_buf_used || (i_axi_arvalid && o_axi_arready)) && (!o_axi_rvalid || i_axi_rready)) begin
+        case (c_araddr[$clog2(AXI_ADDR_BW_p)-1:2])
+          'd0: begin
+            // Forward write data if write is happening to same address
+            s_axi_rdata = s_led;
+            s_axi_rresp = RESP_OKAY;
+          end
+          default: begin
+            s_axi_rdata = 32'hdeaddead;
+            s_axi_rresp = RESP_SLVERR;
+          end
+        endcase
+        s_axi_rvalid <= 1'b1;
+      // Clear response when handshake completes and no new transaction
+      end else if (o_axi_rvalid && i_axi_rready && !s_araddr_buf_used && !(i_axi_arvalid && o_axi_arready)) begin
+        s_axi_rvalid <= 1'b0;
+      end
+    end
+  end
+
+  assign o_axi_rdata = s_axi_rdata;
+  assign o_axi_rresp = s_axi_rresp;
+  assign o_axi_rvalid = s_axi_rvalid;
 
 endmodule : axi_led

@@ -50,6 +50,10 @@ module axi_led_formal_tb #(
   assume_wdata_valid_ready_handshake  : assume property(valid_ready_handshake(i_axi_wvalid, o_axi_wready, i_axi_wdata));
   assume_wstrb_valid_ready_handshake  : assume property(valid_ready_handshake(i_axi_wvalid, o_axi_wready, i_axi_wstrb));
 
+  // 4-byte aligned
+  assume_araddr_4_byte_aligned : assume property(i_axi_araddr[1:0] == 2'b0);
+  assume_awaddr_4_byte_aligned : assume property(i_axi_awaddr[1:0] == 2'b0);
+
   // ------------------------
   // Assertions
   // ------------------------
@@ -58,13 +62,11 @@ module axi_led_formal_tb #(
   assert_rresp_valid_ready_handshake : assert property(valid_ready_handshake(o_axi_rvalid, i_axi_rready, o_axi_rresp));
   assert_bresp_valid_ready_handshake : assert property(valid_ready_handshake(o_axi_bvalid, i_axi_bready, o_axi_bresp));
 
-  // We want to prove there are no more then one outstanding read or write requests
   // Auxilliary logic for read requests
   int read_request_cnt;
-
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-      read_request_cnt <= 1'b0;
+      read_request_cnt <= '0;
     end else begin
       // If we get immediate response for the read request
       if (!(i_axi_arvalid && o_axi_arready && o_axi_rvalid && i_axi_rready)) begin
@@ -77,29 +79,169 @@ module axi_led_formal_tb #(
     end
   end
 
-  assert_valid_number_of_read_requests : assert property ( read_request_cnt >= 0 && read_request_cnt <= 1);
+  // There should be at most one read request being served and one in the buffer - two in total
+  assert_valid_number_of_read_requests : assert property ( read_request_cnt >= 0 && read_request_cnt <= 2);
 
-  // Correct write data
-  //assert_correct_data_7_0 : assert property (
-  //  i_axi_wvalid && o_axi_wready && i_axi_wstrb[0] |-> ##1 o_led[7:0] == $past(i_axi_wdata[7:0])
-  //);
-  //assert_correct_data_15_8 : assert property (
-  //  i_axi_wvalid && o_axi_wready && i_axi_wstrb[1] |-> ##1 o_led[15:8] == $past(i_axi_wdata[15:8])
-  //);
-  //assert_correct_data_23_16 : assert property (
-  //  i_axi_wvalid && o_axi_wready && i_axi_wstrb[2] |-> ##1 o_led[23:16] == $past(i_axi_wdata[23:16])
-  //);
-  //assert_correct_data_31_24 : assert property (
-  //  i_axi_wvalid && o_axi_wready && i_axi_wstrb[3] |-> ##1 o_led[31:24] == $past(i_axi_wdata[31:24])
-  //);
+  // Auxilliary logic for the data and read response checks
+  logic [31:0] read_data[2];
+  logic [$clog2(AXI_ADDR_BW_p)-1:0] read_addr[2];
+  logic read_address_read_pointer;
+  logic read_address_write_pointer;
+  logic read_data_read_pointer;
+  logic read_data_write_pointer;
+  always_ff @(posedge clk) begin
+    if (!rst_n) begin
+      read_data <= '{default:1'b0};
+      read_addr <= '{default:1'b0};
+      read_address_write_pointer <= 1'b0;
+      read_address_read_pointer <= 1'b0;
+      read_data_write_pointer <= 1'b0;
+      read_data_read_pointer <= 1'b0;
+    end else begin
+      if (i_axi_arvalid && o_axi_arready) begin
+        read_addr[read_address_write_pointer] <= i_axi_araddr;
+        read_address_write_pointer <= ~read_address_write_pointer;
+      end 
+
+      if (o_axi_rvalid && i_axi_rready) begin
+        if (read_addr[read_address_read_pointer] == '0) begin
+          read_data[read_data_write_pointer] <= o_led;
+        end
+        read_data_write_pointer <= ~read_data_write_pointer;
+        read_data_read_pointer <= ~read_data_read_pointer;
+        read_address_read_pointer <= ~read_address_read_pointer;
+      end
+    end
+  end
+
+  assert_correct_read_data_for_invalid_addr : assert property (
+    o_axi_rvalid && i_axi_rready && read_addr[read_address_read_pointer] != 0 |-> o_axi_rdata == 32'hdeaddead
+  );
+  assert_read_response_okay : assert property (
+    o_axi_rvalid && i_axi_rready && read_addr[read_address_read_pointer] == 0 |-> o_axi_rresp == RESP_OKAY
+  );
+  assert_read_response_slverr : assert property (
+    o_axi_rvalid && i_axi_rready && read_addr[read_address_read_pointer] != 0 |-> o_axi_rresp == RESP_SLVERR
+  );
   
+  // Auxilliary logic for write requests and write data
+  int write_request_cnt;
+  int write_data_cnt;
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      write_request_cnt <= '0;
+      write_data_cnt <= '0;
+    end else begin
+      // If we get immediate response for the write request
+      if (!(i_axi_awvalid && o_axi_awready && o_axi_bvalid && i_axi_bready)) begin
+        if (i_axi_awvalid && o_axi_awready) begin
+          write_request_cnt++;
+        end else if (i_axi_bready && o_axi_bvalid) begin
+          write_request_cnt--;
+        end
+      end
+      
+      // If we get immediate response for the write data
+      if (!(i_axi_wvalid && o_axi_wready && o_axi_bvalid && i_axi_bready)) begin
+        if (i_axi_wvalid && o_axi_wready) begin
+          write_data_cnt++;
+        end else if (i_axi_bready && o_axi_bvalid) begin
+          write_data_cnt--;
+        end
+      end
+    end
+  end
+  
+  // There should be at most one write request being served and one in the buffer - two in total
+  assert_valid_number_of_write_requests : assert property ( write_request_cnt >= 0 && write_request_cnt <= 2);
+  assert_valid_number_of_write_data : assert property ( write_data_cnt >= 0 && write_data_cnt <= 2);
+
+  // Auxilliary logic for the data and read response checks
+  logic [31:0] write_data[2];
+  logic [3:0] write_strobe[2];
+  logic [$clog2(AXI_ADDR_BW_p)-1:0] write_addr[2];
+  logic write_data_read_pointer;
+  logic write_data_write_pointer;
+  logic write_address_read_pointer;
+  logic write_address_write_pointer;
+  always_ff @(posedge clk) begin
+    if (!rst_n) begin
+      write_data <= '{default:1'b0};
+      write_addr <= '{default:1'b0};
+      write_strobe <= '{default:1'b0};
+      write_data_write_pointer <= 1'b0;
+      write_data_read_pointer <= 1'b0;
+      write_address_write_pointer <= 1'b0;
+      write_address_read_pointer <= 1'b0;
+    end else begin
+      if (i_axi_wvalid && o_axi_wready) begin
+        write_data[write_data_write_pointer] <= i_axi_wdata;
+        write_strobe[write_data_write_pointer] <= i_axi_wstrb;
+        write_data_write_pointer <= ~write_data_write_pointer;
+      end 
+  
+      if (i_axi_awvalid && o_axi_awready) begin
+        write_addr[write_address_write_pointer] <= i_axi_awaddr;
+        write_address_write_pointer <= ~write_address_write_pointer;
+      end
+
+      if (o_axi_bvalid && i_axi_bready) begin
+        write_data_read_pointer <= ~write_data_read_pointer;
+        write_address_read_pointer <= ~write_address_read_pointer;
+      end
+    end
+  end
+
+  assert_correct_write_data_valid_addr_strb_0 : assert property (
+    o_axi_bvalid && i_axi_bready && write_strobe[write_data_read_pointer][0] && write_addr[write_address_read_pointer] == 0 
+    |-> o_led[7:0] == write_data[write_data_read_pointer][7:0]
+  );
+  assert_correct_write_data_valid_addr_strb_1 : assert property (
+    o_axi_bvalid && i_axi_bready && write_strobe[write_data_read_pointer][1] && write_addr[write_address_read_pointer] == 0 
+    |-> o_led[15:8] == write_data[write_data_read_pointer][15:8]
+  );
+  assert_correct_write_data_valid_addr_strb_2 : assert property (
+    o_axi_bvalid && i_axi_bready && write_strobe[write_data_read_pointer][2] && write_addr[write_address_read_pointer] == 0 
+    |-> o_led[23:16] == write_data[write_data_read_pointer][23:16]
+  );
+  assert_correct_write_data_valid_addr_strb_3 : assert property (
+    o_axi_bvalid && i_axi_bready && write_strobe[write_data_read_pointer][3] && write_addr[write_address_read_pointer] == 0 
+    |-> o_led[31:24] == write_data[write_data_read_pointer][31:24]
+  );
+  assert_write_response_okay : assert property (
+    o_axi_bvalid && i_axi_bready && write_addr[write_address_read_pointer] == 0 |-> o_axi_bresp == RESP_OKAY
+  );
+  assert_write_response_slverr : assert property (
+    o_axi_bvalid && i_axi_bready && write_addr[write_address_read_pointer] != 0 |-> o_axi_bresp == RESP_SLVERR
+  );
 
   // ------------------------
   // Covers
   // ------------------------
   // Cover 5 consecutive read requests
-  cov_5_conecutive_read_requests : cover property (
+  cov_5_consecutive_read_requests : cover property (
     (i_axi_arvalid && o_axi_arready)[*5]
+  );
+
+  // Cover buffer filling and emptying
+  cover_read_buffer_empty_full_empty : cover property (
+    read_request_cnt == 0 ##1 read_request_cnt == 1 ##1 read_request_cnt == 2 ##1
+    read_request_cnt == 1 ##1 read_request_cnt == 0
+  );
+
+  // Cover 5 consecutive write requests
+  cov_5_consecutive_write_requests : cover property (
+    (i_axi_awvalid && o_axi_awready)[*5]
+  );
+
+  // Cover buffer filling and emptying
+  cover_write_request_buffer_empty_full_empty : cover property (
+    write_request_cnt == 0 ##1 write_request_cnt == 1 ##1 write_request_cnt == 2 ##1
+    write_request_cnt == 1 ##1 write_request_cnt == 0
+  );
+  cover_write_data_buffer_empty_full_empty : cover property (
+    write_data_cnt == 0 ##1 write_data_cnt == 1 ##1 write_data_cnt == 2 ##1
+    write_data_cnt == 1 ##1 write_data_cnt == 0
   );
   
   // ------------------------

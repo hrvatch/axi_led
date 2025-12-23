@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <wavelist version="3">
-  <insertion-point-position>13</insertion-point-position>
+  <insertion-point-position>15</insertion-point-position>
   <wave collapsed="true">
     <expr>o_axi_rdata</expr>
     <label/>
@@ -37,26 +37,6 @@
     <radix/>
   </wave>
   <wave collapsed="true">
-    <expr>axi_led_dut.s_rresp_buf</expr>
-    <label/>
-    <radix>o_axi_rresp</radix>
-  </wave>
-  <wave>
-    <expr>axi_led_dut.s_rvalid_buf_en</expr>
-    <label/>
-    <radix/>
-  </wave>
-  <wave>
-    <expr>axi_led_dut.s_rvalid_buf</expr>
-    <label/>
-    <radix/>
-  </wave>
-  <wave collapsed="true">
-    <expr>axi_led_dut.s_rdata_buf</expr>
-    <label/>
-    <radix/>
-  </wave>
-  <wave collapsed="true">
     <expr>axi_led_dut.c_rdata</expr>
     <label/>
     <radix/>
@@ -65,5 +45,35 @@
     <expr>axi_led_dut.c_rresp</expr>
     <label/>
     <radix>o_axi_rresp</radix>
+  </wave>
+  <wave collapsed="true">
+    <expr>read_request_cnt</expr>
+    <label/>
+    <radix/>
+  </wave>
+  <wave collapsed="true">
+    <expr>o_led</expr>
+    <label/>
+    <radix/>
+  </wave>
+  <wave collapsed="true">
+    <expr>read_data[1]</expr>
+    <label/>
+    <radix/>
+  </wave>
+  <wave collapsed="true">
+    <expr>read_data[0]</expr>
+    <label/>
+    <radix/>
+  </wave>
+  <wave>
+    <expr>read_ch_write_pointer</expr>
+    <label/>
+    <radix/>
+  </wave>
+  <wave>
+    <expr>read_ch_read_pointer</expr>
+    <label/>
+    <radix/>
   </wave>
 </wavelist>
