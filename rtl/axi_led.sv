@@ -13,25 +13,25 @@ module axi_led #(
   parameter AXI_ADDR_BW_p = 12,    // 4k boundary by default
   parameter LED_NBR_p = 8          // Number of LEDs. Maximum length = bus data width 
 ) (
-  input wire logic  clk,
-  input wire logic  rst_n,
-  input wire logic [AXI_ADDR_BW_p-1:0] i_axi_awaddr,
-  input wire logic  i_axi_awvalid,
-  input wire logic [31:0] i_axi_wdata,
-  input wire logic i_axi_wvalid,
-  input wire logic i_axi_bready,
-  input wire logic [AXI_ADDR_BW_p-1:0] i_axi_araddr,
-  input wire logic i_axi_arvalid,
-  input wire logic i_axi_rready,
-  output wire logic o_axi_awready,
-  output wire logic o_axi_wready,
-  output wire logic [1:0] o_axi_bresp,
-  output wire logic o_axi_bvalid,
-  output wire logic o_axi_arready,
-  output wire logic [31:0] o_axi_rdata,
-  output wire logic [1:0] o_axi_rresp,
-  output wire logic o_axi_rvalid,
-  output wire logic [LED_NBR_p-1:0] o_led
+  input logic  clk,
+  input logic  rst_n,
+  input logic [AXI_ADDR_BW_p-1:0] i_axi_awaddr,
+  input logic  i_axi_awvalid,
+  input logic [31:0] i_axi_wdata,
+  input logic i_axi_wvalid,
+  input logic i_axi_bready,
+  input logic [AXI_ADDR_BW_p-1:0] i_axi_araddr,
+  input logic i_axi_arvalid,
+  input logic i_axi_rready,
+  output logic o_axi_awready,
+  output logic o_axi_wready,
+  output logic [1:0] o_axi_bresp,
+  output logic o_axi_bvalid,
+  output logic o_axi_arready,
+  output logic [31:0] o_axi_rdata,
+  output logic [1:0] o_axi_rresp,
+  output logic o_axi_rvalid,
+  output logic [LED_NBR_p-1:0] o_led
 );
 
   localparam logic [1:0] RESP_OKAY   = 2'b00;
@@ -40,6 +40,7 @@ module axi_led #(
   localparam logic [1:0] RESP_DECERR = 2'b11;
   
   logic [31:0] s_led;
+  assign o_led = s_led[LED_NBR_p-1:0];
   
   // --------------------------------------------------------------
   // Write address, write data and write wresponse
@@ -141,10 +142,9 @@ module axi_led #(
     end
   end
   
-  assign o_axi_bresp = s_axi_bresp;
-  assign o_led = s_led;
 
   // Assign intermediate signals to outputs 
+  assign o_axi_bresp = s_axi_bresp;
   assign o_axi_bvalid = s_axi_bvalid;
   
   // --------------------------------------------------------------
