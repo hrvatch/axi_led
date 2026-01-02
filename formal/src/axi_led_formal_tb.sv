@@ -1,15 +1,15 @@
 module axi_led_formal_tb #(
-  parameter int AXI_ADDR_BW_p = 12,
+  parameter int AXI_ADDR_BW_p = 4,
   parameter int LED_NBR_p = 32
 ) (
   input wire logic  clk,
   input wire logic  rst_n,
-  input wire logic [$clog2(AXI_ADDR_BW_p)-1:0] i_axi_awaddr,
+  input wire logic [AXI_ADDR_BW_p-1:0] i_axi_awaddr,
   input wire logic  i_axi_awvalid,
   input wire logic [31:0] i_axi_wdata,
   input wire logic i_axi_wvalid,
   input wire logic i_axi_bready,
-  input wire logic [$clog2(AXI_ADDR_BW_p)-1:0] i_axi_araddr,
+  input wire logic [AXI_ADDR_BW_p-1:0] i_axi_araddr,
   input wire logic i_axi_arvalid,
   input wire logic i_axi_rready,
   output wire logic o_axi_awready,
@@ -82,7 +82,7 @@ module axi_led_formal_tb #(
 
   // Auxilliary logic for the data and read response checks
   logic [31:0] read_data[2];
-  logic [$clog2(AXI_ADDR_BW_p)-1:0] read_addr[2];
+  logic [AXI_ADDR_BW_p-1:0] read_addr[2];
   logic read_address_read_pointer;
   logic read_address_write_pointer;
   logic read_data_read_pointer;
@@ -156,7 +156,7 @@ module axi_led_formal_tb #(
 
   // Auxilliary logic for the data and read response checks
   logic [31:0] write_data[2];
-  logic [$clog2(AXI_ADDR_BW_p)-1:0] write_addr[2];
+  logic [AXI_ADDR_BW_p-1:0] write_addr[2];
   logic write_data_read_pointer;
   logic write_data_write_pointer;
   logic write_address_read_pointer;

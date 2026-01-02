@@ -15,12 +15,12 @@ module axi_led #(
 ) (
   input wire logic  clk,
   input wire logic  rst_n,
-  input wire logic [$clog2(AXI_ADDR_BW_p)-1:0] i_axi_awaddr,
+  input wire logic [AXI_ADDR_BW_p-1:0] i_axi_awaddr,
   input wire logic  i_axi_awvalid,
   input wire logic [31:0] i_axi_wdata,
   input wire logic i_axi_wvalid,
   input wire logic i_axi_bready,
-  input wire logic [$clog2(AXI_ADDR_BW_p)-1:0] i_axi_araddr,
+  input wire logic [AXI_ADDR_BW_p-1:0] i_axi_araddr,
   input wire logic i_axi_arvalid,
   input wire logic i_axi_rready,
   output wire logic o_axi_awready,
@@ -35,7 +35,7 @@ module axi_led #(
 );
 
   localparam logic [1:0] RESP_OKAY   = 2'b00;
-  localparam logic [1:0] RESP_EXOKAY = 2'b10;
+  localparam logic [1:0] RESP_EXOKAY = 2'b01;
   localparam logic [1:0] RESP_SLVERR = 2'b10;
   localparam logic [1:0] RESP_DECERR = 2'b11;
   
@@ -51,8 +51,8 @@ module axi_led #(
   logic [31:0] s_axi_wdata_buf;
   logic [3:0]  s_axi_wstrb_buf;
   logic [1:0]  s_axi_bresp;
-  logic [$clog2(AXI_ADDR_BW_p)-1:0] s_axi_awaddr_buf;
-  logic [$clog2(AXI_ADDR_BW_p)-1:0] c_axi_awaddr;
+  logic [AXI_ADDR_BW_p-1:0] s_axi_awaddr_buf;
+  logic [AXI_ADDR_BW_p-1:0] c_axi_awaddr;
   logic s_axi_awaddr_buf_used;
   logic s_axi_awvalid;
   logic s_axi_wvalid;
@@ -61,7 +61,7 @@ module axi_led #(
   logic s_axi_awready;
   logic s_axi_wready;
   logic s_awaddr_done;
-  logic [$clog2(AXI_ADDR_BW_p-1):0] s_axi_awaddr;
+  logic [AXI_ADDR_BW_p-1:0] s_axi_awaddr;
  
   // We want to stall the address write if either we received write request without write data
   // or if the write address buffer is full and master is stalling write response channel
@@ -124,7 +124,7 @@ module axi_led #(
     end else begin
       // If there is write address and write data in the buffer
       if (valid_write_address && valid_write_data && (!o_axi_bvalid || i_axi_bready)) begin
-        case (c_axi_awaddr[$clog2(AXI_ADDR_BW_p)-1:2])
+        case (c_axi_awaddr[AXI_ADDR_BW_p-1:2])
           '0 : begin
             s_led <= c_axi_wdata[LED_NBR_p-1:0];
             s_axi_bresp <= RESP_OKAY;
@@ -156,9 +156,9 @@ module axi_led #(
   logic s_axi_arready;
 
   // Read address buffer
-  logic [$clog2(AXI_ADDR_BW_p)-1:0] s_araddr_buf;
+  logic [AXI_ADDR_BW_p-1:0] s_araddr_buf;
   logic s_araddr_buf_used;
-  logic [$clog2(AXI_ADDR_BW_p)-1:0] c_araddr;
+  logic [AXI_ADDR_BW_p-1:0] c_araddr;
 
   // Address buffer management
   always_ff @(posedge clk) begin
@@ -193,7 +193,7 @@ module axi_led #(
     end else begin
       // Generate response when address is available (buffer or direct)
       if ((s_araddr_buf_used || (i_axi_arvalid && o_axi_arready)) && (!o_axi_rvalid || i_axi_rready)) begin
-        case (c_araddr[$clog2(AXI_ADDR_BW_p)-1:2])
+        case (c_araddr[AXI_ADDR_BW_p-1:2])
           'd0: begin
             // Forward write data if write is happening to same address
             s_axi_rdata <= '0;
